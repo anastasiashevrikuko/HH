@@ -1,4 +1,4 @@
-import requests
+import httpx
 from bs4 import BeautifulSoup
 import json
 import os
@@ -6,7 +6,8 @@ import os
 HH_URL = 'https://hh.ru/vacancies/product_manager'
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
+    'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8',
 }
 SEEN_FILE = 'seen.json'
 TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -27,17 +28,18 @@ def save_seen(seen):
 
 
 def get_vacancies():
-    resp = requests.get(HH_URL, headers=HEADERS)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, 'html.parser')
-    items = soup.find_all('a', {'data-qa': 'serp-item__title'})
-    return {item['href'] for item in items}
+    with httpx.Client(http2=True, headers=HEADERS, timeout=10.0) as client:
+        resp = client.get(HH_URL)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        items = soup.find_all('a', {'data-qa': 'serp-item__title'})
+        return {item['href'] for item in items}
 
 
 def send_telegram_message(text):
     url = f'https://api.telegram.org/bot{TOKEN}/sendMessage'
     data = {'chat_id': CHAT_ID, 'text': text}
-    requests.post(url, data=data)
+    httpx.post(url, data=data)
 
 
 def main():
